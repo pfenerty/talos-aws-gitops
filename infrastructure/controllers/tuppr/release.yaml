@@ -1,0 +1,42 @@
+# Upgrades Talos and Kubernetes in place, node by node, to the versions in
+# infrastructure/configs/talos-upgrades.
+#
+# Requires kubernetes_talos_api_access in Terraform, for tuppr-system. The
+# chart creates a talos.dev ServiceAccount, a kind that only exists when that
+# access is on; without it this release fails, and with it the whole
+# infra-controllers layer. Drop tuppr from the cluster's overlay (and
+# talos-upgrades from configs) if the cluster doesn't grant it.
+#
+# CreateReplace on upgrade: the CRDs ship in crds/, which Helm otherwise
+# installs once and never updates, and their schemas move between 0.x
+# releases.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: tuppr
+  namespace: flux-system
+spec:
+  interval: 1h
+  dependsOn:
+    - name: aws-cloud-controller-manager
+    - name: prometheus-operator-crds
+  chartRef:
+    kind: OCIRepository
+    name: tuppr
+  targetNamespace: tuppr-system
+  install:
+    crds: Create
+  upgrade:
+    crds: CreateReplace
+  values:
+    # Leader-elected, and one upgrade runs cluster-wide at a time anyway.
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 10m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+    monitoring:
+      serviceMonitor:
+        enabled: true

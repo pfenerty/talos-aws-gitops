@@ -1,0 +1,61 @@
+# First on a new cluster. Talos runs with an external cloud provider, so every
+# node registers tainted node.cloudprovider.kubernetes.io/uninitialized and
+# nothing without a toleration schedules until this sets the node's providerID
+# and zone labels and removes the taint. Everything else in this layer
+# depends on it.
+#
+# The chart's defaults are what let it run that early: it tolerates the taint,
+# is pinned to the control plane, and uses dnsPolicy Default because CoreDNS
+# can't be up yet. Don't override them.
+#
+# No instance metadata: the launch templates set an IMDS hop limit of 1, which
+# a pod can't cross. Region, VPC and the synthetic self-instance come from
+# cloud.conf; credentials come from a role assumed with the projected token
+# below, named in the shared AWS config file. Terraform writes both files into
+# kube-system/cloud-controller-manager-aws-config.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: aws-cloud-controller-manager
+  namespace: flux-system
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: aws-cloud-controller-manager
+      version: 0.0.12
+      sourceRef:
+        kind: HelmRepository
+        name: aws-cloud-controller-manager
+  targetNamespace: kube-system
+  values:
+    args:
+      - --v=2
+      - --cloud-provider=aws
+      # Pod routing is Cilium's, not the VPC route table's.
+      - --configure-cloud-routes=false
+      - --cloud-config=/etc/aws/cloud.conf
+    env:
+      - name: AWS_CONFIG_FILE
+        value: /etc/aws/config
+    extraVolumes:
+      - name: aws-config
+        configMap:
+          name: cloud-controller-manager-aws-config
+      # audience is not optional: STS refuses a token minted for anything else.
+      - name: aws-token
+        projected:
+          sources:
+            - serviceAccountToken:
+                path: token
+                audience: sts.amazonaws.com
+                expirationSeconds: 3600
+    extraVolumeMounts:
+      - name: aws-config
+        mountPath: /etc/aws
+        readOnly: true
+      # Terraform writes /var/run/secrets/aws/token into the shared config
+      # file. Nothing checks that the two agree.
+      - name: aws-token
+        mountPath: /var/run/secrets/aws
+        readOnly: true

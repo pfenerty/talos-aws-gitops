@@ -1,6 +1,7 @@
-# HTTP Helm repositories shared across layers. Charts published to an OCI
-# registry don't come through here: each add-on directory carries its own
-# OCIRepository, whose tag is the chart version, next to the HelmRelease.
+# HTTP Helm repositories, for the charts that are not published to an OCI
+# registry. Charts that are come through an OCIRepository in the add-on's own
+# directory, whose tag is the chart version.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-resources: []
+resources:
+  - helm-repositories.yaml

@@ -45,3 +45,8 @@ spec:
       - kind: ConfigMap
         name: cluster-versions
         optional: false
+      # Node facts for the EC2NodeClass and NodePool. Written by Terraform
+      # when extras.karpenter is on; drop this entry with Karpenter.
+      - kind: Secret
+        name: karpenter-vars
+        optional: false

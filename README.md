@@ -21,15 +21,32 @@ and `modules/bootstrap` are the source of truth for their keys and shapes:
 | Object | Kind | Read by |
 |--------|------|---------|
 | `cilium-config` | Secret | Cilium `HelmRelease` (`valuesFrom`), which adopts the bootstrap install |
-| `karpenter-config` | Secret (`flux-system`) | Karpenter `HelmRelease`, `EC2NodeClass`, `NodePool` |
+| `karpenter-config` | Secret (`flux-system`) | Karpenter `HelmRelease` (`valuesFrom`) |
+| `karpenter-vars` | Secret (`flux-system`) | `EC2NodeClass`, `NodePool`, via `postBuild.substituteFrom` on `infra-configs` |
 | `karpenter-aws-config` | ConfigMap (`kube-system`) | Karpenter controller `envFrom` |
 | `cloud-controller-manager-aws-config` | ConfigMap | AWS cloud controller manager |
 | `ebs-csi-driver-aws-config` | ConfigMap | EBS CSI driver |
-| `aws-loadbalancer-config` | Secret (`flux-system`) | AWS load balancer controller |
-| `cluster-versions` | ConfigMap | tuppr `TalosUpgrade` / `KubernetesUpgrade`, via `postBuild.substituteFrom` |
+| `aws-loadbalancer-config` | Secret (`flux-system`) | Nothing yet: the AWS load balancer controller (gitops-9wb) |
+| `cluster-versions` | ConfigMap (`flux-system`) | tuppr `TalosUpgrade` / `KubernetesUpgrade`, via `postBuild.substituteFrom` on `infra-configs` |
 
 A change to any of these names or shapes lands in talos-aws-terraform first,
 then here.
+
+Terraform also installs two Helm releases during bootstrap and then stops
+reconciling them. The Cilium `HelmRelease` here adopts `kube-system-cilium` by
+matching its `releaseName`, `targetNamespace` and `storageNamespace`.
+`kube-system-kubelet-csr-approver` stays Terraform's for now: its values carry
+the cluster's region and VPC CIDR, which Terraform doesn't publish yet.
+
+### What the template expects from Terraform
+
+| Setting | Needed by | Without it |
+|---------|-----------|------------|
+| `post_install.flux` | everything | No Flux |
+| `extras.ebs` | `aws-ebs-csi-driver` | Remove it from the cluster's controllers overlay |
+| `extras.karpenter` | `karpenter`, `karpenter-nodes` | Remove both, and `karpenter-vars` from `infra-configs`' `substituteFrom` |
+| `kubernetes_talos_api_access.enabled` | `tuppr`, `talos-upgrades` | Remove both. The tuppr chart creates a `talos.dev` ServiceAccount, a kind that only exists with this on |
+| `hardening.kubelet_serving_certificates` | `metrics-server`, which verifies kubelet certificates | Add `--kubelet-insecure-tls` to its args in the cluster's overlay |
 
 ## Layout
 

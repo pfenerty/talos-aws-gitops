@@ -1,0 +1,37 @@
+# The versions the cluster should run; tuppr reconciles the fleet to them.
+# Both are substituted from Terraform's flux-system/cluster-versions, which
+# already holds them to pick the node AMI, so a version bump is one Terraform
+# change. Neither carries a health check in the infra-configs Kustomization's
+# sense: an upgrade object stays not-Ready for as long as a rollout runs.
+#
+# tuppr doesn't enforce Talos's supported upgrade path; stepping one minor at
+# a time is a review-time obligation on the Terraform change.
+---
+apiVersion: tuppr.home-operations.com/v1alpha1
+kind: TalosUpgrade
+metadata:
+  name: cluster
+spec:
+  talos:
+    version: ${talos_version}
+    # Pull the installer everywhere before cordoning anything, so a bad tag
+    # stops the run before it disrupts a node.
+    prePull: true
+  policy:
+    # Wait for EBS volumes to detach before rebooting, or the pod that owned
+    # one can hit Multi-Attach on its next node.
+    waitForVolumeDetach: true
+    # Keep the upgrade Job off the node it upgrades. tuppr relaxes this on a
+    # single-node cluster.
+    placement: hard
+    debug: false
+---
+# One per cluster. Restarts control plane components and kubelets in place,
+# and never runs concurrently with a TalosUpgrade.
+apiVersion: tuppr.home-operations.com/v1alpha1
+kind: KubernetesUpgrade
+metadata:
+  name: kubernetes
+spec:
+  kubernetes:
+    version: ${kubernetes_version}

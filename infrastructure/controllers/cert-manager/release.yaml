@@ -1,0 +1,27 @@
+# Certificates for anything that needs an issuer. Nothing in this layer
+# requires it any more (Hubble issues its own), so issuers belong in
+# infrastructure/configs or with the workload that uses them.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cert-manager
+  namespace: flux-system
+spec:
+  interval: 1h
+  dependsOn:
+    - name: aws-cloud-controller-manager
+    - name: prometheus-operator-crds
+  chartRef:
+    kind: OCIRepository
+    name: cert-manager
+  targetNamespace: cert-manager
+  values:
+    # Templated by the chart, not installed from crds/. keep leaves them, and
+    # every Certificate and Issuer, in place if the release is uninstalled.
+    crds:
+      enabled: true
+      keep: true
+    prometheus:
+      enabled: true
+      servicemonitor:
+        enabled: true

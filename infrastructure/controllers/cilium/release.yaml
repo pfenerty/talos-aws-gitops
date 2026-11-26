@@ -1,0 +1,108 @@
+# Cilium's day-2 configuration. Terraform installs a minimal Cilium so nodes
+# can reach Ready, then stops reconciling it; this release adopts that same
+# Helm release and upgrades it in place to add WireGuard in strict mode,
+# Hubble and metrics.
+#
+# Adoption depends on three names matching Terraform's helm_release:
+# releaseName, targetNamespace and storageNamespace. storageNamespace is the
+# easy one to miss: Flux defaults it to this object's namespace, where it
+# would find no release and attempt a fresh install over the running one.
+#
+# The block before `encryption` repeats the bootstrap values, which are what
+# Cilium needs to run on Talos at all; an upgrade that omitted them would
+# remove them. Capabilities are the chart defaults minus SYS_MODULE (Talos
+# can't load modules) and SYSLOG; re-check both lists on every bump.
+# cgroup: Talos mounts it, Cilium must not. k8sServiceHost: KubePrism, because
+# with kube-proxy replaced nothing serves a ClusterIP until Cilium runs.
+#
+# The pod CIDR comes from Terraform's cilium-config secret, so the strict-mode
+# CIDR can't disagree with the one the machine configs were generated with.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cilium
+  namespace: flux-system
+spec:
+  interval: 1h
+  dependsOn:
+    # Hubble relay and UI don't tolerate the uninitialized taint.
+    - name: aws-cloud-controller-manager
+    - name: prometheus-operator-crds
+  chartRef:
+    kind: OCIRepository
+    name: cilium
+  releaseName: kube-system-cilium
+  targetNamespace: kube-system
+  storageNamespace: kube-system
+  valuesFrom:
+    - kind: Secret
+      name: cilium-config
+      valuesKey: pod-cidr
+      targetPath: encryption.strictMode.egress.cidr
+  values:
+    ipam:
+      mode: kubernetes
+    kubeProxyReplacement: true
+    k8sServiceHost: localhost
+    k8sServicePort: 7445
+    cgroup:
+      autoMount:
+        enabled: false
+      hostRoot: /sys/fs/cgroup
+    securityContext:
+      capabilities:
+        ciliumAgent: [CHOWN, KILL, NET_ADMIN, NET_RAW, IPC_LOCK, SYS_ADMIN, SYS_RESOURCE, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+        cleanCiliumState: [NET_ADMIN, SYS_ADMIN, SYS_RESOURCE]
+
+    # Strict mode fails closed: traffic to the pod CIDR leaving a node is
+    # dropped unless encrypted. Node-to-node traffic is outside that CIDR (the
+    # VPC and pod CIDRs are disjoint), so no remote-node exemption is needed.
+    encryption:
+      enabled: true
+      type: wireguard
+      strictMode:
+        egress:
+          enabled: true
+          allowRemoteNodeIdentities: false
+
+    hubble:
+      relay:
+        enabled: true
+        prometheus:
+          enabled: true
+          serviceMonitor:
+            enabled: true
+      ui:
+        enabled: true
+      # cronJob: Cilium generates its own CA and the CronJob re-issues the
+      # certificates on the schedule, with no cert-manager dependency and no
+      # Terraform-generated trust anchor (talos-ecs drops that).
+      tls:
+        enabled: true
+        auto:
+          enabled: true
+          method: cronJob
+          certValidityDuration: 365
+      metrics:
+        enabled:
+          - dns:query;ignoreAAAA
+          - drop
+          - tcp
+          - flow
+          - icmp
+          - http
+        serviceMonitor:
+          enabled: true
+        dashboards:
+          enabled: true
+    prometheus:
+      enabled: true
+      serviceMonitor:
+        enabled: true
+    operator:
+      prometheus:
+        enabled: true
+        serviceMonitor:
+          enabled: true
+      dashboards:
+        enabled: true

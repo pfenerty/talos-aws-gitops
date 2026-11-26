@@ -1,0 +1,65 @@
+# Block storage, and the cluster's default StorageClass.
+#
+# The controller assumes a role with its projected token; role ARN, token path
+# and region come from Terraform's kube-system/ebs-csi-driver-aws-config.
+# awsAccessSecret is nulled so the chart doesn't wire static keys that would
+# win over web identity.
+#
+# The node plugin needs no credentials, but it does need its instance ID and
+# zone and can't reach IMDS (hop limit 1), so it reads them from its Node
+# object, which the cloud controller manager has labelled by then.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: aws-ebs-csi-driver
+  namespace: flux-system
+spec:
+  interval: 1h
+  dependsOn:
+    - name: aws-cloud-controller-manager
+    - name: prometheus-operator-crds
+  chart:
+    spec:
+      chart: aws-ebs-csi-driver
+      version: 2.68.1
+      sourceRef:
+        kind: HelmRepository
+        name: aws-ebs-csi-driver
+  targetNamespace: kube-system
+  values:
+    awsAccessSecret: null
+    controller:
+      envFrom:
+        - configMapRef:
+            name: ebs-csi-driver-aws-config
+      volumes:
+        - name: aws-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  audience: sts.amazonaws.com
+                  expirationSeconds: 3600
+      volumeMounts:
+        - name: aws-token
+          mountPath: /var/run/secrets/aws
+          readOnly: true
+      enableMetrics: true
+      serviceMonitor:
+        forceEnable: true
+    node:
+      metadataSources: kubernetes
+      enableMetrics: true
+      serviceMonitor:
+        forceEnable: true
+    storageClasses:
+      - name: gp3
+        annotations:
+          storageclass.kubernetes.io/is-default-class: "true"
+        # An EBS volume can't leave its zone, so bind once the pod is placed.
+        volumeBindingMode: WaitForFirstConsumer
+        reclaimPolicy: Delete
+        allowVolumeExpansion: true
+        parameters:
+          type: gp3
+          encrypted: "true"

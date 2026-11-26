@@ -1,0 +1,6 @@
+# Stand-ins for what karpenter-config supplies through valuesFrom; the chart
+# refuses to render without them.
+settings:
+  clusterName: example
+  clusterEndpoint: https://example.invalid:6443
+  interruptionQueue: example
