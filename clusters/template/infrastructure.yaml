@@ -1,0 +1,47 @@
+# The layer the cluster does not work without. Split in two at the CRD
+# boundary: controllers install charts (and the CRDs they bring), configs
+# create instances of those CRDs. Ordering inside each half is HelmRelease
+# dependsOn, not more Kustomizations.
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infra-controllers
+  namespace: flux-system
+spec:
+  interval: 1h
+  retryInterval: 2m
+  timeout: 30m
+  prune: true
+  wait: true
+  path: ./clusters/template/overlays/infrastructure/controllers
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: infra-configs
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: infra-controllers
+  interval: 1h
+  retryInterval: 2m
+  timeout: 10m
+  prune: true
+  wait: true
+  path: ./clusters/template/overlays/infrastructure/configs
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  # Values Terraform owns, substituted as plain strings into everything this
+  # Kustomization renders, so a literal `$` under it must be written `$$`.
+  # optional: false: a missing ConfigMap fails the apply instead of
+  # substituting empty strings into the version every node upgrades to.
+  postBuild:
+    substituteFrom:
+      - kind: ConfigMap
+        name: cluster-versions
+        optional: false

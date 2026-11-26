@@ -1,12 +1,12 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended"
+    "config:recommended",
+    "customManagers:githubActionsVersions"
   ],
   "flux": {
     "managerFilePatterns": [
-      "/(^|/)clusters/.+\\.ya?ml$/",
-      "/(^|/)platform/.+\\.ya?ml$/"
+      "/(^|/)(clusters|infrastructure|observability|policy|apps)/.+\\.ya?ml$/"
     ]
   }
 }

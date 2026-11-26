@@ -1,0 +1,16 @@
+# The root of this cluster's sync path. Explicit because without it
+# kustomize-controller generates one from every manifest under the directory,
+# overlays/ included, and would apply the overlays' contents a second time
+# outside the Flux Kustomizations that are meant to own them.
+#
+# flux-system/ is written by Terraform's bootstrap and must stay listed:
+# dropping it would let Flux prune itself. Delete a layer file (and its line
+# here) to leave that layer out of the cluster.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - flux-system
+  - infrastructure.yaml
+  - observability.yaml
+  - policy.yaml
+  - apps.yaml

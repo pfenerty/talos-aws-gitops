@@ -1,0 +1,5 @@
+# What this cluster runs from infrastructure/configs/, listed as ../../../../../infrastructure/configs/<name>.
+# Patch a component for this cluster only here.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources: []

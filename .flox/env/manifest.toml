@@ -11,6 +11,8 @@ kustomize.pkg-path = "kustomize"
 fluxcd.pkg-path = "fluxcd"
 kubectl.pkg-path = "kubectl"
 kubeconform.pkg-path = "kubeconform"
+yq-go.pkg-path = "yq-go"
+kubernetes-helm.pkg-path = "kubernetes-helm"
 # gum.pkg-path = "gum"
 # gum.version = "^0.14.5"
 

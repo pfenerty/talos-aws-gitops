@@ -1,0 +1,51 @@
+# Runs scripts/validate.sh. Tools are installed directly rather than through
+# Flox: the repo's Flox env includes ../../common, which only exists in the
+# ~/code/infra workspace. Versions match what that env provides locally.
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      # renovate: datasource=github-releases depName=kubernetes-sigs/kustomize extractVersion=^kustomize/(?<version>.+)$
+      KUSTOMIZE_VERSION: v5.8.3
+      # renovate: datasource=github-releases depName=yannh/kubeconform
+      KUBECONFORM_VERSION: v0.8.0
+      # renovate: datasource=github-releases depName=mikefarah/yq
+      YQ_VERSION: v4.54.1
+      # renovate: datasource=github-releases depName=helm/helm
+      HELM_VERSION: v4.3.1
+      # renovate: datasource=github-releases depName=fluxcd/flux2
+      FLUX_VERSION: v2.9.6
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install tools
+        run: |
+          set -euo pipefail
+          bin="$HOME/.local/bin"; mkdir -p "$bin"; cd "$bin"
+          curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz" \
+            | tar xz --strip-components=1 linux-amd64/helm
+          curl -fsSL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" \
+            | tar xz kustomize
+          curl -fsSL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
+            | tar xz kubeconform
+          curl -fsSL "https://github.com/fluxcd/flux2/releases/download/${FLUX_VERSION}/flux_${FLUX_VERSION#v}_linux_amd64.tar.gz" \
+            | tar xz flux
+          curl -fsSL -o yq "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
+          chmod +x yq
+          echo "$bin" >> "$GITHUB_PATH"
+
+      - run: ./scripts/validate.sh
