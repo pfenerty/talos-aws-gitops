@@ -20,15 +20,25 @@ other repos and how changes propagate between them.
 
 ## Quality gates
 
-`flox activate` provides `flux`, `kubectl`, `kustomize`, `kubeconform` and
-`bd`. Every cluster directory must build and validate:
+`flox activate` provides `flux`, `kubectl`, `kustomize`, `kubeconform`, `helm`,
+`yq` and `bd`. Before every commit, run the same gate CI runs:
 
 ```sh
-kustomize build clusters/<project_name> | kubeconform -strict -ignore-missing-schemas -summary
+flox activate -- ./scripts/validate.sh
 ```
 
-`postBuild` substitution is a plain string replace across the whole
-Kustomization, so a literal `$` under a substituted path must be written `$$`.
+- `postBuild` substitution is a plain string replace across the whole
+  Kustomization, so a literal `$` under a substituted path must be written
+  `$$`. Adding a substitution variable means adding a stand-in for it to
+  `scripts/ci/vars.env`.
+- A chart that won't render without a value from `valuesFrom` gets one in
+  `scripts/ci/values/<release>.yaml`.
+- Shared components under the layer roots (`infrastructure/`,
+  `observability/`, `policy/`, `apps/`) carry no cluster-specific values.
+  Those go in `clusters/<name>/overlays/` or come from Terraform.
+- New clusters come from `scripts/new-cluster.sh`, never from a bare `cp -r`:
+  the Flux paths name the cluster's own directory.
+- Scripts must run under macOS bash 3.2 and BSD tools as well as on Linux.
 
 ## Issue tracking
 

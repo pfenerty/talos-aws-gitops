@@ -1,0 +1,6 @@
+# What this cluster runs from infrastructure/controllers. Add or remove an
+# add-on by its directory; patch its HelmRelease here for this cluster only.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../../../../infrastructure/sources
