@@ -1,0 +1,18 @@
+# What this cluster runs from infrastructure/controllers. Remove an add-on by
+# deleting its line; patch it for this cluster only with `patches:` here.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../../../../infrastructure/sources
+  - ../../../../../infrastructure/controllers/prometheus-operator-crds
+  - ../../../../../infrastructure/controllers/aws-cloud-controller-manager
+  - ../../../../../infrastructure/controllers/cilium
+  - ../../../../../infrastructure/controllers/cert-manager
+  - ../../../../../infrastructure/controllers/metrics-server
+  - ../../../../../infrastructure/controllers/aws-ebs-csi-driver
+  # Needs extras.karpenter in Terraform. Remove together with karpenter-nodes
+  # in configs, and karpenter-vars from infra-configs' substituteFrom.
+  - ../../../../../infrastructure/controllers/karpenter
+  # Needs kubernetes_talos_api_access in Terraform. Remove together with
+  # talos-upgrades in configs.
+  - ../../../../../infrastructure/controllers/tuppr

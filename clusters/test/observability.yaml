@@ -1,0 +1,19 @@
+# Optional. Delete this file and its line in kustomization.yaml to drop the
+# layer; prune: true removes what it installed.
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: observability
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: infra-configs
+  interval: 1h
+  retryInterval: 2m
+  timeout: 20m
+  prune: true
+  wait: true
+  path: ./clusters/test/overlays/observability
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
