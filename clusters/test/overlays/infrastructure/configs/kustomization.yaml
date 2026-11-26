@@ -1,0 +1,8 @@
+# What this cluster runs from infrastructure/configs: instances of CRDs the
+# controllers layer registers. Everything here is subject to postBuild
+# substitution, so a literal `$` must be written `$$`.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../../../../infrastructure/configs/karpenter-nodes
+  - ../../../../../infrastructure/configs/talos-upgrades
