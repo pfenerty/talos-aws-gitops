@@ -1,0 +1,42 @@
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: default
+spec:
+  # A ceiling on everything this pool buys, so a runaway workload stops here
+  # rather than at the account quota. Patch per cluster in its overlay.
+  limits:
+    cpu: "64"
+    memory: 256Gi
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 1m
+    budgets:
+      - nodes: 10%
+  template:
+    spec:
+      # Talos isn't patched in place, so rotation is also how Karpenter nodes
+      # pick up a new AMI.
+      expireAfter: 720h
+      nodeClassRef:
+        group: karpenter.k8s.aws
+        kind: EC2NodeClass
+        name: default
+      requirements:
+        - key: kubernetes.io/os
+          operator: In
+          values: ["linux"]
+        # Must match the AMI's architecture, so Terraform decides it.
+        - key: kubernetes.io/arch
+          operator: In
+          values: ["${node_architecture}"]
+        # A JSON array from Terraform's var.karpenter.capacity_types.
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ${capacity_types}
+        - key: karpenter.k8s.aws/instance-category
+          operator: In
+          values: ["c", "m", "r", "t"]
+        - key: karpenter.k8s.aws/instance-generation
+          operator: Gt
+          values: ["4"]

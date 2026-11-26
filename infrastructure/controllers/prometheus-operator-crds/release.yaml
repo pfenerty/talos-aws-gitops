@@ -1,0 +1,15 @@
+# ServiceMonitor, PodMonitor and PrometheusRule CRDs, installed with the
+# infrastructure because most of it declares ServiceMonitors and Helm fails a
+# release whose CRD is missing. The observability layer's stack disables its
+# own copies so that only this release owns them.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: prometheus-operator-crds
+  namespace: flux-system
+spec:
+  interval: 1h
+  chartRef:
+    kind: OCIRepository
+    name: prometheus-operator-crds
+  targetNamespace: kube-system

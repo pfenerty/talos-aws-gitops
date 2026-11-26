@@ -1,0 +1,66 @@
+# Node autoscaling above the fixed worker baseline. The EC2NodeClass and
+# NodePool are in infrastructure/configs/karpenter-nodes.
+#
+# Configuration arrives in two objects because the chart takes it two ways:
+# flux-system/karpenter-config as chart values (valuesFrom resolves in this
+# object's namespace) and kube-system/karpenter-aws-config as the controller's
+# environment (envFrom resolves in the pod's). Neither holds a credential.
+#
+# clusterEndpoint is required: Karpenter only discovers it on EKS.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: karpenter
+  namespace: flux-system
+spec:
+  interval: 1h
+  dependsOn:
+    - name: aws-cloud-controller-manager
+    - name: prometheus-operator-crds
+  chartRef:
+    kind: OCIRepository
+    name: karpenter
+  targetNamespace: kube-system
+  valuesFrom:
+    - kind: Secret
+      name: karpenter-config
+      valuesKey: cluster-name
+      targetPath: settings.clusterName
+    - kind: Secret
+      name: karpenter-config
+      valuesKey: cluster-endpoint
+      targetPath: settings.clusterEndpoint
+    - kind: Secret
+      name: karpenter-config
+      valuesKey: interruption-queue
+      targetPath: settings.interruptionQueue
+  values:
+    # One, not the chart's two: it pairs replicas with a required hostname
+    # anti-affinity and refuses Karpenter-launched nodes, so a second replica
+    # is unschedulable on a one-node baseline and the release never goes
+    # Ready. Raise it with the baseline.
+    replicas: 1
+    controller:
+      envFrom:
+        - configMapRef:
+            name: karpenter-aws-config
+      extraVolumeMounts:
+        - name: aws-token
+          mountPath: /var/run/secrets/aws
+          readOnly: true
+      resources:
+        requests:
+          cpu: 200m
+          memory: 512Mi
+        limits:
+          memory: 512Mi
+    extraVolumes:
+      - name: aws-token
+        projected:
+          sources:
+            - serviceAccountToken:
+                path: token
+                audience: sts.amazonaws.com
+                expirationSeconds: 3600
+    serviceMonitor:
+      enabled: true

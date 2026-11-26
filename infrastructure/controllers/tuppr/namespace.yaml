@@ -1,0 +1,13 @@
+# The namespace Terraform's kubernetes_talos_api_access names, which is the
+# whole of the granularity Talos offers: every workload here can obtain a
+# Talos API credential with os:admin. Nothing but tuppr goes in it, and it is
+# deliberately not the conventional system-upgrade, which other operators
+# install into.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tuppr-system
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted

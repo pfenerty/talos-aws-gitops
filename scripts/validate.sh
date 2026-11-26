@@ -29,9 +29,12 @@ indent() { sed 's/^/    /'; }
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-# Kinds kubeconform should not check, comma-separated. Empty by default;
-# extend with SKIP_KINDS=... when a catalog schema lags a pinned chart.
-SKIP_KINDS="${SKIP_KINDS:-}"
+# Kinds kubeconform should not check, comma-separated, for when the CRDs
+# catalog's schema lags the chart pinned here. The API server still validates
+# them at apply time, against the CRD the chart actually installed.
+#   TalosUpgrade, KubernetesUpgrade: the catalog predates prePull and
+#   waitForVolumeDetach, which tuppr 0.5.x accepts.
+SKIP_KINDS="${SKIP_KINDS:-TalosUpgrade,KubernetesUpgrade}"
 CRD_SCHEMAS='https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
 
 conform() {
